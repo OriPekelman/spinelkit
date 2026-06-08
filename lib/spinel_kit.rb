@@ -11,6 +11,8 @@
 #   SpinelKit::Json          -- JSON encoders (json.rb) + flat-key decoders
 #                               (json_decoder.rb).
 #   SpinelKit::Json::Builder -- incremental ordered-object builder.
+#   SpinelKit::Hex           -- hex digit/byte encode + decode.
+#   SpinelKit::Url           -- percent-encode/decode + form-query + URL split.
 #   SpinelKit::Git           -- git provenance from .git/HEAD (was Toy::Git).
 #   SpinelKit::Log           -- minimal levelled logger (was Tep::Logger).
 #
@@ -23,6 +25,8 @@
 #   require "spinel_kit/json"          # encoders
 #   require "spinel_kit/json_decoder"  # decoders (require alongside json if you decode)
 #   require "spinel_kit/json_builder"  # builder
+#   require "spinel_kit/hex"           # hex digit/byte codec
+#   require "spinel_kit/url"           # percent-codec + query (pulls in hex)
 #   require "spinel_kit/git"
 #   require "spinel_kit/log"
 #
@@ -32,6 +36,8 @@ require_relative "spinel_kit/version"
 require_relative "spinel_kit/json"
 require_relative "spinel_kit/json_decoder"
 require_relative "spinel_kit/json_builder"
+require_relative "spinel_kit/hex"
+require_relative "spinel_kit/url"
 require_relative "spinel_kit/git"
 require_relative "spinel_kit/log"
 

@@ -2,6 +2,24 @@
 
 All notable changes to SpinelKit are documented here.
 
+## [0.2.0] - 2026-06-08
+
+### Added
+- **`SpinelKit::Hex`** (`lib/spinel_kit/hex.rb`) — hex digit/byte codec:
+  `nibble` (hex char → 0..15), `nibble_char` (0..15 → uppercase hex char),
+  `byte2` (byte → two lowercase hex chars), `to_int` (leading hex digits →
+  int). Consolidates a `hex_nibble` that was **byte-identical** across
+  `Tep::Url`, `Tep::Llm`, and `SpinelKit::Json`'s decoder.
+- **`SpinelKit::Url`** (`lib/spinel_kit/url.rb`) — the `CGI`/`URI`-component
+  surface Spinel can't get from stdlib: `escape`/`unescape` (RFC 3986
+  percent-codec), `parse_query` (form-urlencoded → Hash), `split_url`
+  (scheme/host/port/path/query). Ported from `Tep::Url`; uses `SpinelKit::Hex`
+  and is self-contained (inline typed-hash seeding + substring search).
+
+`SpinelKit::Json` keeps its own private `hex2`/`hex_nibble` so a JSON-only
+consumer never compiles `Hex` (Spinel has no tree-shaking) — the small
+duplication is the surface-isolation cost.
+
 ## [0.1.1] - 2026-06-08
 
 ### Fixed

@@ -1,0 +1,9 @@
+module SpinelKit
+  class Url
+    def self.unescape: (String s) -> String
+    def self.escape: (String s) -> String
+    def self.parse_query: (String s) -> Hash[String, String]
+    def self.split_url: (String u) -> Hash[String, String]
+    def self.find_idx: (String s, String needle, Integer start) -> Integer
+  end
+end
