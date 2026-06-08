@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# SpinelKit is Spinel-AOT source, but its correctness contract is the CRuby
+# parity tests (test/*_test.rb) — they run under CRuby and assert the shims
+# behave identically to the stdlib they replace. Spinel compilation itself is
+# verified out-of-band (the spinelgems catalog harness), not here. So CI is:
+# parity tests across the supported Ruby range + RBS syntax + gemspec build.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # required_ruby_version is ">= 3.2.0" (Spinel's Ruby level); cover the
+        # range through the gx10 host Ruby (3.4).
+        ruby: ['3.2', '3.3', '3.4']
+    name: ruby ${{ matrix.ruby }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+
+      # No Gemfile on purpose — the gem ships zero runtime deps. The dev/test
+      # surface is just these three (minitest + rake for the suite, rbs for
+      # signature validation).
+      - name: Install dev deps
+        run: gem install rake minitest rbs --no-document
+
+      - name: Tests (CRuby parity)
+        run: rake test
+
+      - name: Validate RBS signatures
+        run: rbs -I sig validate
+
+      - name: Build gem
+        run: gem build spinel_kit.gemspec

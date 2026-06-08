@@ -1,5 +1,6 @@
 # SpinelKit
 
+[![CI](https://github.com/OriPekelman/spinelkit/actions/workflows/ci.yml/badge.svg)](https://github.com/OriPekelman/spinelkit/actions/workflows/ci.yml)
 [![Gem Version](https://img.shields.io/gem/v/spinel_kit)](https://rubygems.org/gems/spinel_kit)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.2-CC342D)
