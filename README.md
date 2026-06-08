@@ -1,22 +1,45 @@
 # SpinelKit
 
+[![Gem Version](https://img.shields.io/gem/v/spinel_kit)](https://rubygems.org/gems/spinel_kit)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.2-CC342D)
+![Pure Ruby](https://img.shields.io/badge/native%20ext-none-brightgreen)
+
 **The Spinel stdlib-surface gem.** A pure-Ruby, Spinel-safe toolkit holding
 the generic "stdlib substitute" shims that every Spinel-compiled project would
 otherwise hand-roll.
 
-[Spinel](../spinel-dev) is a Ruby→native AOT compiler. It cannot lower large
-chunks of the CRuby standard library — the `json` gem's C-extension fast path
-and its metaprogrammed pure-Ruby fallback, stdlib `Logger`, C-extension git
-bindings, and more. So every Spinel project re-derives the same shims. toy and
-tep grew theirs independently, and the JSON escape/quote/hex code came out
-*byte-identical*. SpinelKit is that code, consolidated once.
+[Spinel](https://github.com/matz/spinel) is a Ruby→native AOT compiler. It
+cannot lower large chunks of the CRuby standard library — the `json` gem's
+C-extension fast path and its metaprogrammed pure-Ruby fallback, stdlib
+`Logger`, C-extension git bindings, and more. So every Spinel project re-derives
+the same shims. [toy](https://github.com/OriPekelman/toy) and
+[tep](https://github.com/OriPekelman/tep) grew theirs independently, and the
+JSON escape/quote/hex code came out *byte-identical*. SpinelKit is that code,
+consolidated once.
+
+## Installation
+
+```sh
+gem install spinel_kit
+```
+
+Or in a Gemfile:
+
+```ruby
+gem "spinel_kit"
+```
+
+Pure Ruby, no native extension, no runtime dependencies — so it also vendors
+cleanly into a Spinel build via [bundler-spinel](https://github.com/OriPekelman/spinelgems).
 
 ## Why a gem instead of reusing one?
 
-The first thing we did was audit the [spinelgems](../spinelgems) compatibility
-catalog (verdict ladder: `verified > loaded > clean > risky > rejected`) for an
-existing gem to reuse — that would have been the biggest win. **There wasn't
-one.** These shims *are* the ecosystem's gaps:
+The first thing we did was audit the
+[spinelgems](https://github.com/OriPekelman/spinelgems) compatibility catalog
+(verdict ladder: `verified > loaded > clean > risky > rejected`) for an existing
+gem to reuse — that would have been the biggest win. **There wasn't one.** These
+shims *are* the ecosystem's gaps:
 
 | Surface | Catalog finding | Decision |
 |---------|-----------------|----------|
@@ -98,7 +121,8 @@ gone — the Spinel inference bug that motivated them is fixed). Consumer adopti
 is the next phase: because we author every repo in this set, tep and toy
 **migrate to `SpinelKit::*` directly and delete their donor modules** — we
 standardize and clean rather than leave compatibility aliases behind. See
-[`docs/adoption.md`](docs/adoption.md). Tracking issue: toy#44.
+[`docs/adoption.md`](docs/adoption.md). Tracking issue:
+[OriPekelman/toy#44](https://github.com/OriPekelman/toy/issues/44).
 
 ## Development
 

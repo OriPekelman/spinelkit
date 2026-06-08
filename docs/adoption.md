@@ -12,6 +12,20 @@ introduce poly-degrade collisions in a consumer's whole-program inference — so
 we migrate one consumer at a time and gate each on its poly-degrade scan. But
 the end-state is clean call sites, one canonical surface, and no aliases.
 
+## Consumption mechanism (and the current interim)
+
+The clean path is `gem "spinel_kit"` + `spinel-compat vendor`. But that flow
+does **not yet support transitive gem→gem dependencies** (no topo-sorted
+`deps.rb`, no inter-gem require resolution), so a consumer that is *itself* a
+vendored gem — like tep — can't yet pull spinel_kit through it. Tracked at
+[OriPekelman/spinelgems#19](https://github.com/OriPekelman/spinelgems/issues/19).
+
+**Interim:** the consumer vendors spinel_kit's lib (the surface it uses)
+**committed under its own `lib/spinel_kit/`**, re-synced from the published gem
+(e.g. tep's `make vendor-spinelkit`). Committed-under-`lib/` is what makes it
+travel correctly when the consumer is itself vendored. Once spinelgems#19 lands,
+switch to the gitignored `spinel-compat vendor` flow.
+
 ## Migration per consumer
 
 For each of tep and toy:

@@ -2,10 +2,11 @@
 
 All notable changes to SpinelKit are documented here.
 
-## [0.1.0] - 2026-06-08 (unreleased)
+## [0.1.0] - 2026-06-08
 
-Bootstrap. Establishes the gem and lands the three core shims, consolidated
-from toy and tep. See toy#44 for the rationale.
+First release. Establishes the gem and lands the three core shims, consolidated
+from toy and tep. See [OriPekelman/toy#44](https://github.com/OriPekelman/toy/issues/44)
+for the rationale.
 
 ### Added
 - `SpinelKit::Json` encoders (`lib/spinel_kit/json.rb`) — from `Tep::Json`:

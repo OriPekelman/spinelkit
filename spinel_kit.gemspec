@@ -22,6 +22,7 @@ Gem::Specification.new do |s|
     "source_code_uri"       => "https://github.com/OriPekelman/spinelkit",
     "bug_tracker_uri"       => "https://github.com/OriPekelman/spinelkit/issues",
     "documentation_uri"     => "https://github.com/OriPekelman/spinelkit#readme",
+    "changelog_uri"         => "https://github.com/OriPekelman/spinelkit/blob/main/CHANGELOG.md",
     "rubygems_mfa_required" => "true",
   }
 
