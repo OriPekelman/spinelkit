@@ -1,0 +1,8 @@
+/pkg/
+/tmp/
+*.gem
+*.o
+*.so
+*.a
+*.bundle
+.DS_Store

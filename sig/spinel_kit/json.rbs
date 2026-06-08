@@ -1,0 +1,50 @@
+# Advisory RBS for SpinelKit::Json. Spinel doesn't consume these as
+# authoritative yet; they document the public surface for human readers and
+# IDE tooling. One sig file per lib file, mirroring tep's convention.
+module SpinelKit
+  class Json
+    # ---- Builder half (instance) ----
+    def initialize: () -> void
+    def j_str: (String jk, String jv) -> String
+    def j_num: (String jk, untyped jv) -> String
+    def j_bool: (String jk, bool jv) -> String
+    def j_raw: (String jk, String jraw) -> String
+    def j_obj: (String jk, SpinelKit::Json jchild) -> String
+    def j_dump: () -> String
+    def j_comma: () -> void
+
+    # ---- Builder half (class escapers) ----
+    def self.tj_quote: (String tjs) -> String
+    def self.tj_escape: (String tjs) -> String
+    def self.tj_hex2: (Integer tjnb) -> String
+
+    # ---- Encoder half ----
+    def self.escape: (String s) -> String
+    def self.hex2: (Integer n) -> String
+    def self.quote: (String s) -> String
+    def self.encode_pair_str: (String k, String v) -> String
+    def self.encode_pair_int: (String k, Integer v) -> String
+    def self.from_str_hash: (Hash[String, String] h) -> String
+    def self.from_int_hash: (Hash[String, Integer] h) -> String
+    def self.from_str_array: (Array[String] a) -> String
+    def self.from_int_array: (Array[Integer] a) -> String
+
+    # ---- Decoder half (flat-key, top-level only) ----
+    def self.get_str: (String s, String key) -> String
+    def self.get_int: (String s, String key) -> Integer
+    def self.get_float: (String s, String key) -> Float
+    def self.get_int_array: (String s, String key) -> Array[Integer]
+    def self.has_key?: (String s, String key) -> bool
+
+    # ---- Internal walkers ----
+    def self.skip_ws: (String s, Integer pos) -> Integer
+    def self.skip_str: (String s, Integer pos) -> Integer
+    def self.skip_value: (String s, Integer pos) -> Integer
+    def self.skip_container: (String s, Integer pos) -> Integer
+    def self.parse_str_value: (String s, Integer pos) -> String
+    def self.hex_nibble: (String c) -> Integer
+    def self.byte_to_chr: (Integer n) -> String
+    def self.parse_int_value: (String s, Integer pos) -> Integer
+    def self.find_value_start: (String s, String target_key) -> Integer
+  end
+end

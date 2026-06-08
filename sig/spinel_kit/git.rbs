@@ -1,0 +1,8 @@
+module SpinelKit
+  class Git
+    def initialize: (String gi_sha, String gi_branch) -> void
+    def gi_sha: () -> String
+    def gi_branch: () -> String
+    def self.read: () -> SpinelKit::Git
+  end
+end
