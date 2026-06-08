@@ -12,6 +12,12 @@ introduce poly-degrade collisions in a consumer's whole-program inference — so
 we migrate one consumer at a time and gate each on its poly-degrade scan. But
 the end-state is clean call sites, one canonical surface, and no aliases.
 
+**Tracking (each consumer migrates itself, in its own repo):**
+[tep#202](https://github.com/OriPekelman/tep/pull/202) (codec + logger; in
+review) and [toy#49](https://github.com/OriPekelman/toy/issues/49) (builder +
+git). SpinelKit changes happen here; consumer changes happen in the consumer's
+repo via those issues.
+
 ## Consumption mechanism (and the current interim)
 
 The clean path is `gem "spinel_kit"` + `spinel-compat vendor`. But that flow
