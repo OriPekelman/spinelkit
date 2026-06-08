@@ -2,6 +2,16 @@
 
 All notable changes to SpinelKit are documented here.
 
+## [0.1.1] - 2026-06-08
+
+### Fixed
+- `SpinelKit::Git.read` no longer truncates branch names that contain a slash.
+  A branch like `feat/x` (HEAD → `ref: refs/heads/feat/x`) was reported as `x`
+  because the parser took the last `/`-segment. It now strips the `refs/heads/`
+  prefix, preserving the full branch path (`feat/x`, `user/feature/sub/thing`).
+  Non-`heads` refs fall back to the last segment. Caught by toy's run_start
+  provenance during the toy#44 migration. Covered by `test/git_test.rb`.
+
 ## [0.1.0] - 2026-06-08
 
 First release. Establishes the gem and lands the three core shims, consolidated

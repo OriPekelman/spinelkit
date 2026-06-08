@@ -49,9 +49,18 @@ module SpinelKit
         end
         if head.length > 5 && head[0...5] == "ref: "
           ref_rel = head[5...head.length]
-          pp = ref_rel.split("/")
-          if pp.length >= 3
-            b = pp[pp.length - 1]
+          # The branch is the ref path minus the "refs/heads/" prefix (11
+          # chars). Strip the prefix rather than taking the last "/"-segment
+          # so slashes WITHIN a branch name survive — e.g. refs/heads/feat/x
+          # is the branch "feat/x", not "x". Non-heads refs (packed/remote/
+          # tag) fall back to the last segment.
+          if ref_rel.length > 11 && ref_rel[0...11] == "refs/heads/"
+            b = ref_rel[11...ref_rel.length]
+          else
+            pp = ref_rel.split("/")
+            if pp.length >= 1
+              b = pp[pp.length - 1]
+            end
           end
           ref_path = ".git/" + ref_rel
           if File.exist?(ref_path)
