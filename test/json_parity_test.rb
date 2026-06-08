@@ -39,22 +39,28 @@ class JsonParityTest < Minitest::Test
   # ---- Builder half ----
 
   def test_builder_emits_parseable_object_in_insertion_order
-    j = J.new
-    j.j_str("kind", "run_start")
-    j.j_num("t", 1715000000)
-    j.j_bool("ok", true)
-    j.j_raw("lr", "0.001")
-    out = j.j_dump
+    j = SpinelKit::Json::Builder.new
+    j.add_str("kind", "run_start")
+    j.add_num("t", 1715000000)
+    j.add_bool("ok", true)
+    j.add_raw("lr", "0.001")
+    out = j.dump
     assert_equal '{"kind":"run_start","t":1715000000,"ok":true,"lr":0.001}', out
     assert_equal "run_start", JSON.parse(out)["kind"]
   end
 
   def test_builder_nests_sub_builders
-    host = J.new
-    host.j_str("name", "gx10")
-    j = J.new
-    j.j_obj("host", host)
-    assert_equal({ "host" => { "name" => "gx10" } }, JSON.parse(j.j_dump))
+    host = SpinelKit::Json::Builder.new
+    host.add_str("name", "gx10")
+    j = SpinelKit::Json::Builder.new
+    j.add_obj("host", host)
+    assert_equal({ "host" => { "name" => "gx10" } }, JSON.parse(j.dump))
+  end
+
+  def test_builder_escapes_like_cruby
+    j = SpinelKit::Json::Builder.new
+    j.add_str("msg", "a \"q\" \\ b\tc")
+    assert_equal({ "msg" => "a \"q\" \\ b\tc" }, JSON.parse(j.dump))
   end
 
   # ---- Decoder half: read a top-level key from a flat object ----

@@ -34,28 +34,58 @@ For each of tep and toy:
 
 Sequence tep first (simpler, no training landmine), then toy.
 
-## Canonical surface — the cleanup question
+## Canonical surface — already converged
 
-The bootstrap API is the *union* of both donors, which still carries two
-artifacts of the old split that a clean standardization should resolve:
+The kit exposes ONE clean surface, not the union of two prefixed donor copies:
 
-- **Prefixed names (`j_*`/`tj_*` on the builder, `gi_*` on Git).** These
-  prefixes exist *only* to dodge Spinel's name-keyed inference landmine — they
-  are a workaround, not a design. Since we own Spinel, the principled fix is to
-  **fix the name-keyed cross-module widening in the compiler** and then drop
-  the prefixes, so the kit exposes plain `escape`/`quote`/`add_str`/`sha`/…
-  This is tracked as the real end-state; until that Spinel fix lands, dropping
-  the prefixes risks reintroducing the corruption.
-- **Duplicated escapers (`escape` vs `tj_escape`, `hex2` vs `tj_hex2`).** Today
-  they are byte-identical but kept separate because delegating once mis-widened
-  a param (documented in `spinel-discipline.md`). Same root cause; same fix.
+- **No `j_*`/`tj_*`/`gi_*` prefixes.** Those existed only to dodge a Spinel
+  name-keyed inference bug, which is now fixed upstream (`ac7720e` #684,
+  `23ba632` #1043; verified on rev `57af7f9` with toy's gate-poly-degrade — see
+  [`spinel-discipline.md`](spinel-discipline.md)). The builder uses
+  `add_str`/`add_num`/`add_bool`/`add_raw`/`add_obj`/`dump`; Git uses
+  `sha`/`branch`.
+- **No duplicated escapers.** `escape`/`quote`/`hex2` are single canonical
+  methods the builder calls.
 
-So there is a genuine fork — collapse now (requires/bets on the Spinel
-inference fix) vs. ship the union for v0.1 and converge once that fix lands.
-**This is called out for an explicit decision rather than chosen unilaterally,
-because it has compiler-correctness consequences.** The bootstrap ships the
-union so the migration can begin immediately on a stable surface; the
-convergence is the first follow-up once the call is made.
+The Json surface is split across **three files** so each consumer compiles only
+what it uses — Spinel has no tree-shaking, so loading code a consumer never
+calls would compile (and degrade) it, which both trips the poly-degrade gate
+and, worse, was observed to silently miscompile (dead decoder walkers widened
+`escape`'s string arg to int, emitting `""` keys from `from_*_hash`). The split:
+`spinel_kit/json` (encoders), `spinel_kit/json_decoder` (decoders),
+`spinel_kit/json_builder` (builder). So:
+
+- **tep** `require "spinel_kit/json"` + `"spinel_kit/json_decoder"` (it both
+  encodes responses and decodes request bodies) + `spinel_kit/log`. Verified:
+  the full encode+decode surface compiles **0 warnings, correct** on rev
+  `57af7f9`.
+- **toy** `require "spinel_kit/json_builder"` + `spinel_kit/git`. Verified:
+  builder-only compiles **0 warnings, correct** (integers preserved, no
+  cross-module `value` poisoning).
+
+A consumer must actually exercise the surface it loads (real ones do). A
+program that loads decoders but never calls them — or encodes via `from_*_hash`
+without any other string-`quote` call — can still see the dead-method
+degradation; the poly-degrade gate is what catches that.
+
+The per-symbol replacement is then a clean rename:
+
+| donor call               | canonical call                  |
+|--------------------------|---------------------------------|
+| `Toy::Json.new`          | `SpinelKit::Json::Builder.new`  |
+| `j.j_str(k, v)`          | `j.add_str(k, v)`               |
+| `j.j_num(k, v)`          | `j.add_num(k, v)`               |
+| `j.j_dump`               | `j.dump`                        |
+| `Toy::Git.read.gi_sha`   | `SpinelKit::Git.read.sha`       |
+| `Tep::Json.get_str(s,k)` | `SpinelKit::Json.get_str(s,k)`  |
+| `Tep::Json.quote(s)`     | `SpinelKit::Json.quote(s)`      |
+| `Tep::Logger.new`        | `SpinelKit::Log.new`            |
+
+tep's encoder/decoder spellings (`escape`/`quote`/`encode_pair_*`/`from_*`/
+`get_*`) are unchanged — only the namespace moves. toy's builder is the one set
+of call sites that changes method names. Each consumer's compile should be
+warning-clean (no new emit-0) because it loads only its own surface — verify
+with the poly-degrade gate after the move.
 
 ## Git/Log
 

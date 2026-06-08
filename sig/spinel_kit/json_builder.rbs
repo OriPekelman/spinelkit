@@ -1,0 +1,19 @@
+module SpinelKit
+  class Json
+    class Builder
+      def initialize: () -> void
+      def add_str: (String key, String value) -> String
+      def add_num: (String key, untyped value) -> String
+      def add_bool: (String key, bool value) -> String
+      def add_raw: (String key, String raw) -> String
+      def add_obj: (String key, SpinelKit::Json::Builder child) -> String
+      def dump: () -> String
+      def comma: () -> void
+
+      # self-contained escapers (byte-identical to SpinelKit::Json.*)
+      def self.quote: (String s) -> String
+      def self.escape: (String s) -> String
+      def self.hex2: (Integer n) -> String
+    end
+  end
+end

@@ -32,29 +32,43 @@ the verification-request issues we filed on spinelgems.
 ## What's in it
 
 ```ruby
-require "spinel_kit"
+require "spinel_kit"   # everything (CRuby / convenience)
 ```
 
-- **`SpinelKit::Json`** — an ordered JSON-object builder (`j_str`/`j_num`/
-  `j_bool`/`j_raw`/`j_obj`/`j_dump`) plus JSON-over-HTTP encoders
-  (`escape`/`quote`/`encode_pair_*`/`from_*`) and flat-key decoders
-  (`get_str`/`get_int`/`get_float`/`get_int_array`/`has_key?`).
+For a **Spinel-compiled** consumer, require only the surface you use — Spinel
+has no tree-shaking, so every loaded method is compiled (and an uncalled one
+can degrade). The Json surface is split into three files for exactly this
+reason: `spinel_kit/json` (encoders), `spinel_kit/json_decoder` (decoders), and
+`spinel_kit/json_builder` (the builder). e.g. tep requires `json` + `json_decoder`;
+toy requires `json_builder`.
+
+- **`SpinelKit::Json`** — a JSON-over-HTTP codec: encoders
+  (`escape`/`quote`/`encode_pair_*`/`from_*`, in `spinel_kit/json`) and flat-key
+  decoders (`get_str`/`get_int`/`get_float`/`get_int_array`/`has_key?`, in
+  `spinel_kit/json_decoder`).
 
   ```ruby
-  j = SpinelKit::Json.new
-  j.j_str("kind", "run_start")
-  j.j_num("t", 1715000000)
-  j.j_dump                                   # => {"kind":"run_start","t":1715000000}
+  SpinelKit::Json.get_int('{"age":33}', "age")             # => 33
+  SpinelKit::Json.from_int_hash({"a" => 1, "b" => 2})      # => {"a":1,"b":2}
+  ```
 
-  SpinelKit::Json.get_int('{"age":33}', "age")   # => 33
+- **`SpinelKit::Json::Builder`** — an incremental ordered-object builder
+  (`add_str`/`add_num`/`add_bool`/`add_raw`/`add_obj`/`dump`), in its own file
+  so a builder-only consumer never compiles the codec, and vice versa.
+
+  ```ruby
+  j = SpinelKit::Json::Builder.new
+  j.add_str("kind", "run_start")
+  j.add_num("t", 1715000000)
+  j.dump                                     # => {"kind":"run_start","t":1715000000}
   ```
 
 - **`SpinelKit::Git`** — git provenance from `.git/HEAD`.
 
   ```ruby
   g = SpinelKit::Git.read
-  g.gi_sha       # => "a1b2c3..." (or "unknown" outside a repo)
-  g.gi_branch    # => "main"
+  g.sha          # => "a1b2c3..." (or "unknown" outside a repo)
+  g.branch       # => "main"
   ```
 
 - **`SpinelKit::Log`** — a minimal levelled logger (CRuby `Logger` doesn't
@@ -69,23 +83,22 @@ require "spinel_kit"
 ## Design constraints (read before editing)
 
 SpinelKit is **pure Ruby, no native extension** (`spinel-ext.json` is `[]`) and
-has **no runtime dependencies**, so it vendors cleanly via `bundler-spinel`.
-Critically, Spinel's whole-program type inference is keyed partly on **method
-and parameter names** — a careless rename can silently corrupt a *consumer's*
-compiled output even if SpinelKit is merely required. Every public name here is
-preserved verbatim from its proven-green donor. See
+has **no runtime dependencies**, so it vendors cleanly via `bundler-spinel`. The
+surface uses plain, standard names; the `j_`/`tj_`/`gi_` prefixes the donor
+copies carried were a workaround for a Spinel whole-program-inference bug that
+has since been fixed upstream (verified with toy's `gate-poly-degrade` on the
+current compiler). One numeric caveat remains for `add_num` — see
 [`docs/spinel-discipline.md`](docs/spinel-discipline.md).
 
 ## Status
 
-Pre-alpha (`0.1.0`). The shims are implemented and CRuby-verified. Consumer
-adoption is the next phase: because we author every repo in this set, tep and
-toy **migrate to `SpinelKit::*` directly and delete their donor modules** — we
-standardize and clean rather than leave compatibility aliases behind. The
-bootstrap ships the *union* of both donors' surfaces so migration can start on
-a stable API; converging the two leftover prefix/duplication artifacts is the
-first follow-up (it depends on a Spinel inference fix — see
-[`docs/adoption.md`](docs/adoption.md)). Tracking issue: toy#44.
+Pre-alpha (`0.1.0`). The shims are implemented, CRuby-verified, and the surface
+is the single canonical one (the donor prefixes and duplicated escapers are
+gone — the Spinel inference bug that motivated them is fixed). Consumer adoption
+is the next phase: because we author every repo in this set, tep and toy
+**migrate to `SpinelKit::*` directly and delete their donor modules** — we
+standardize and clean rather than leave compatibility aliases behind. See
+[`docs/adoption.md`](docs/adoption.md). Tracking issue: toy#44.
 
 ## Development
 

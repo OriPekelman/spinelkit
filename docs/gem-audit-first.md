@@ -62,12 +62,15 @@ Filed on `OriPekelman/spinelgems` (see [`spinelgems-issues.md`](spinelgems-issue
 for the exact bodies; issue numbers backfilled here once created):
 
 1. **Re-verify `hike`** at the current engine rev — if it re-verifies,
-   SpinelKit::Path becomes a *reuse* instead of an implement. → _#TBD_
+   SpinelKit::Path becomes a *reuse* instead of an implement.
+   → [spinelgems#16](https://github.com/OriPekelman/spinelgems/issues/16)
 2. **Rubric clarification: `gitkite` / `git_manager`** — confirm their `clean`
    verdict is load-path-terminal, so SpinelKit::Git's implement decision is
-   catalog-blessed. → _#TBD_
+   catalog-blessed.
+   → [spinelgems#17](https://github.com/OriPekelman/spinelgems/issues/17)
 3. *(optional)* **`oj` closure** — confirm `risky` is C-ext-terminal (no
-   pure-Ruby path), closing the JSON-reuse question on the record. → _#TBD_
+   pure-Ruby path), closing the JSON-reuse question on the record.
+   → [spinelgems#18](https://github.com/OriPekelman/spinelgems/issues/18)
 
 We did **not** file issues for `json`, `logger`, or `rugged`: their rejections
 are unambiguous (C-ext / metaprogramming) and a re-probe wouldn't flip them.

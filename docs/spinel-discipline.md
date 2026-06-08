@@ -4,44 +4,58 @@ SpinelKit ships code that gets compiled into *other* programs by Spinel's
 whole-program AOT compiler. That changes the rules for how it must be written.
 This doc is the contract for anyone editing `lib/spinel_kit/*.rb`.
 
-## 1. Whole-program inference is keyed on names — do NOT rename
+## 1. The name-keyed inference bug — FIXED, prefixes dropped
 
-Spinel infers types across the entire compiled program, and that inference is
-keyed **partly on method and parameter names**. The failure mode is silent and
-non-local:
+The donor copies (`Toy::Json`, `Toy::Git`) carried `j_`/`tj_`/`gi_` prefixes on
+every method and parameter to dodge a Spinel bug:
 
-> A builder method `num(key, value)` whose `value` parameter is numeric-poly
-> can silently widen *every other* `value` parameter in the consuming program
-> to `poly` — degrading or corrupting compute **even when SpinelKit is merely
-> `require`d and never called.**
+> A same-named method or attr-reader across unrelated classes, reached through
+> an unresolved receiver, could commit a wrong type and widen an unrelated
+> value to `poly` — degrading or corrupting compute **even when the offending
+> module was merely `require`d and never called.**
 
-This actually happened in toy: a plain `value` param corrupted warm-start
-training compute. The fix was to give every method and parameter a namespace
-prefix so they can't collide with hot-path names elsewhere.
+This actually bit toy (landmines #12/#16 in the gx10-side memory note
+`feedback_spinel_type_inference_landmines.md`; #16 was filed as matz/spinel
+#1043). **It has since been fixed in the compiler** — the relevant commits are
+`ac7720e` ("same-named attr_accessor on unrelated classes no longer widens
+reader to poly", #684) and `23ba632` ("Don't let a Struct member name globally
+type-merge unrelated code", fixes #1043), part of a sustained campaign that
+made inference receiver-aware / method-scoped instead of name-keyed. Each ships
+a regression test in Spinel's CI.
 
-**This prefixing is a workaround, not the design we want.** Since we author
-Spinel itself, the principled end-state is to fix the name-keyed cross-module
-widening in the compiler and then drop the `j_*`/`tj_*`/`gi_*` prefixes so the
-kit exposes plain, standard names. Until that compiler fix lands, the rules
-below hold and the prefixes stay. See `adoption.md` ("Canonical surface").
+**Verified, not assumed.** On the current compiler (rev `57af7f9`) we compiled
+two-module reproducers — a builder whose `value` param legitimately goes poly
+alongside an unrelated method with its own `value` param — and confirmed no
+cross-method leakage; toy's own `gate-poly-degrade` and its landmine-#16 probe
+both pass. So **the prefixes are gone** and SpinelKit uses plain, standard
+names (`escape`/`quote`/`add_str`/`sha`/`branch`/plain `value`).
 
-**Consequences for SpinelKit:**
+**Remaining rules:**
 
-- **Every public name is preserved verbatim from its proven-green donor.** Do
-  not "tidy," shorten, or generalise names. `Json`'s builder half keeps `j_*`
-  / `tj_*` and params `jk`/`jv`/`jchild`; `Git` keeps `gi_*`; the
-  encoder/decoder half keeps its donor spellings.
-- **The two `Json` halves were checked for collisions.** Builder params
-  (`jk`/`jv`/`jchild`) and encoder/decoder params (`s`/`key`/`k`/`v`) are
-  disjoint, so the union adds no new collisions. The only intra-name
-  polymorphism (`encode_pair_str` vs `encode_pair_int` over `v`) already
-  shipped green inside tep.
-- **`Json.escape` and `Json.tj_escape` stay separate**, byte-identical
-  methods — we do **not** delegate one to the other. tep's `get_float` comment
-  records that factoring a value-walk through a shared helper mis-widened a
-  param to int. Independence is the safe choice; the small duplication is the
-  price.
+- **Split the surface so consumers don't compile dead code.** Spinel has no
+  tree-shaking: every loaded method is compiled, and a *set* of uncalled
+  methods can degrade each other's (and nearby live methods') param types. We
+  saw this concretely — with the encoders and decoders in one class, an
+  encode-only program left the 9 decoder walkers dead; their `s` params
+  collapsed to `int` and dragged `escape`'s `s` to `int` too, silently
+  emitting `""` keys from `from_*_hash`. The fix was structural: encoders
+  (`json.rb`), decoders (`json_decoder.rb`), and builder (`json_builder.rb`)
+  live in separate files, so a consumer loads only a coherent surface it
+  actually exercises. Verified clean (0 emit-0, correct output) for the real
+  consumer shapes — builder-only (toy) and encode+decode (tep) — on rev
+  `57af7f9`. A consumer that loads a surface but leaves part of it uncalled can
+  still trip the gate; that's expected, and the gate is what flags it.
+- **`escape`/`quote`/`hex2` are single canonical methods** — the builder
+  carries its own byte-identical copies (so a builder-only compile pulls in no
+  codec); there is no `tj_*` prefix any more.
+- **Keep `get_float` inlined** (it does NOT delegate to a `parse_float_value`
+  helper). This is unrelated to the name bug — it's a value-walk *indirection*
+  issue where Spinel mis-widened the string arg `s` to int through the helper
+  call. Until that's separately confirmed fixed, leave it inlined.
 - **Never override `to_s`** — it merges across the whole program.
+- The stale cautionary comments in toy's `toy_json.rb`/`toy_git.rb` and the
+  landmine memory note should be annotated "fixed upstream by `ac7720e`/
+  `23ba632`, verified on `57af7f9`" when those repos are next touched.
 
 ## 2. The poly-degrade gate (how consumers verify SpinelKit is safe)
 
@@ -53,10 +67,12 @@ warning is a regression.
 - toy: `make gate-poly-degrade` → `prep/poly_degrade_gate.rb`
   (baseline-compare; `--record` to re-baseline).
 
-When toy/tep adopt SpinelKit (see [`adoption.md`](adoption.md)), the gate must
-stay **byte-identical to baseline** after the move. If aliasing
-`Toy::Json = SpinelKit::Json` introduces an emit-0, the names are colliding —
-fix the name, don't re-baseline.
+When toy/tep migrate to SpinelKit (see [`adoption.md`](adoption.md)), the gate
+must stay **byte-identical to baseline** after the move. If rewriting toy's call
+sites to `SpinelKit::Json.*` introduces an emit-0, treat it as a real
+regression — fix the cause, don't re-baseline. (This gate guards a broader
+failure mode than the old name bug — unresolved hot-path calls and missing
+requires that emit a literal `0` — so it stays in CI regardless.)
 
 ## 3. The `Hash[missing] == 0` gotcha (a.k.a. "SafeHash")
 

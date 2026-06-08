@@ -1,9 +1,11 @@
 # spinelgems verification-request issues
 
-Drafts of the issues filed on `OriPekelman/spinelgems` as part of the
-gem-audit-first pass (see [`gem-audit-first.md`](gem-audit-first.md)). Filed
-via `gh issue create --repo OriPekelman/spinelgems`. Backfill issue numbers
-into the audit doc once created.
+Issues filed on `OriPekelman/spinelgems` as part of the gem-audit-first pass
+(see [`gem-audit-first.md`](gem-audit-first.md)):
+[#16](https://github.com/OriPekelman/spinelgems/issues/16) (hike re-verify),
+[#17](https://github.com/OriPekelman/spinelgems/issues/17) (gitkite/git_manager
+rubric), [#18](https://github.com/OriPekelman/spinelgems/issues/18) (oj
+closure). Bodies below.
 
 ---
 

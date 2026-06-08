@@ -8,17 +8,30 @@
 # catalog confirms there is no verified gem to reuse for any of them. So this
 # gem consolidates the shims toy and tep each grew independently:
 #
-#   SpinelKit::Json -- ordered-object builder (toy half) + JSON-over-HTTP
-#                      encoder/flat-key decoder (tep half), unioned.
-#   SpinelKit::Git  -- git provenance from .git/HEAD (was Toy::Git).
-#   SpinelKit::Log  -- minimal levelled logger (was Tep::Logger).
+#   SpinelKit::Json          -- JSON encoders (json.rb) + flat-key decoders
+#                               (json_decoder.rb).
+#   SpinelKit::Json::Builder -- incremental ordered-object builder.
+#   SpinelKit::Git           -- git provenance from .git/HEAD (was Toy::Git).
+#   SpinelKit::Log           -- minimal levelled logger (was Tep::Logger).
 #
-# No native extension (spinel-ext.json is []), no runtime dependencies --
-# it vendors cleanly via bundler-spinel. See docs/adoption.md for how toy
-# and tep consume it, and docs/gem-audit-first.md for the catalog audit that
-# justifies implementing rather than reusing each surface.
+# MINIMAL-SURFACE REQUIRING. This umbrella requires everything for
+# convenience (and for CRuby use). But because Spinel compiles every loaded
+# method with no tree-shaking, a Spinel-compiled consumer should require ONLY
+# the file(s) it uses, to avoid compiling -- and degrading -- code it never
+# calls:
+#
+#   require "spinel_kit/json"          # encoders
+#   require "spinel_kit/json_decoder"  # decoders (require alongside json if you decode)
+#   require "spinel_kit/json_builder"  # builder
+#   require "spinel_kit/git"
+#   require "spinel_kit/log"
+#
+# No native extension (spinel-ext.json is []), no runtime dependencies. See
+# docs/adoption.md and docs/spinel-discipline.md.
 require_relative "spinel_kit/version"
 require_relative "spinel_kit/json"
+require_relative "spinel_kit/json_decoder"
+require_relative "spinel_kit/json_builder"
 require_relative "spinel_kit/git"
 require_relative "spinel_kit/log"
 
