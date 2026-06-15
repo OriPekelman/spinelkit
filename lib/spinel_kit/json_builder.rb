@@ -1,19 +1,21 @@
 # SpinelKit::Json::Builder -- an incremental, ordered JSON-object builder.
 #
 # WHY A SEPARATE FILE/CLASS. This is toy's hand-rolled builder; the codec
-# (SpinelKit::Json, encode/decode) is tep's. They are split so a consumer
-# compiles only the surface it uses: Spinel has no tree-shaking, so an
-# uncalled method is still compiled and degrades its params, emitting benign
-# but gate-tripping `emitting 0` warnings. A builder-only consumer requires
-# THIS file and never pays for the decoder walkers; a codec-only consumer
-# requires spinel_kit/json and never pays for the builder.
+# (SpinelKit::Json, encode/decode) is tep's. They are kept separate because
+# Spinel has no tree-shaking -- every loaded method is compiled into the
+# consumer's binary whether or not it is called. toy is BUILDER-ONLY, so
+# requiring this file (and not spinel_kit/json) keeps the codec out of toy's
+# compile entirely. This isolation is a deliberate compile-size choice, NOT a
+# correctness workaround: the old cross-method poly-degrade that once made
+# co-locating these dangerous is fixed (spinel master b60fbd7).
 #
-# To stay self-contained, Builder carries its OWN escape/quote/hex2 rather
-# than calling SpinelKit::Json.* (which would drag the whole codec, decoders
-# included, into a builder-only compile). These are byte-identical to the
-# codec's; the small duplication buys surface isolation. The same-named
-# methods across the two classes are safe -- the Spinel name-collision bug
-# that once made that dangerous is fixed (see docs/spinel-discipline.md).
+# Builder therefore carries its OWN escape/quote/hex2 rather than calling
+# SpinelKit::Json.* -- delegating would drag the whole codec into a
+# builder-only compile, defeating the isolation. These are byte-identical to
+# the codec's; the small, intentional duplication is what keeps a builder-only
+# consumer from compiling the encoder+decoder it never uses. (If a future
+# consumer needs both builder and codec, prefer requiring spinel_kit/json and
+# dropping the local copies.)
 #
 # USAGE (mutating appenders, NOT method-chaining -- chaining is a Spinel
 # poly-degradation risk):

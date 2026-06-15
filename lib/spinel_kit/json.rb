@@ -1,19 +1,20 @@
-# SpinelKit::Json -- Spinel-safe JSON ENCODERS (stateless).
+# SpinelKit::Json -- Spinel-safe JSON codec (encoders + flat-key decoders).
 #
-# This file holds the encode half of the codec; the decode half lives in
-# spinel_kit/json_decoder.rb (also `SpinelKit::Json`), and the incremental
-# object builder in spinel_kit/json_builder.rb (`SpinelKit::Json::Builder`).
-# The three are split because Spinel has no tree-shaking: every loaded method
-# is compiled, and a set of uncalled methods can degrade each other's params
-# (e.g. the dead decoder walkers collectively widening `escape`'s string arg
-# to int, which silently miscompiled string keys to ""). Keeping
-# encode/decode/build in separate files means a consumer compiles only the
-# surface it calls, and each surface is independently warning-clean. Require
-# only what you use:
+# This file holds the full codec: stateless encoders AND the flat-key,
+# top-level decoders (`get_str`/`get_int`/`get_float`/`get_int_array`/
+# `has_key?` + their walkers). The incremental object builder lives in
+# spinel_kit/json_builder.rb (`SpinelKit::Json::Builder`).
 #
-#   require "spinel_kit/json"          # encoders (this file)
-#   require "spinel_kit/json_decoder"  # decoders
-#   require "spinel_kit/json_builder"  # builder
+# HISTORY: encoders and decoders were once in separate files because, under
+# the old compiler, the uncalled decoder walkers degraded the encoders' string
+# args to int (silently miscompiling string keys to ""). That cross-method
+# poly-degrade is FIXED on spinel master b60fbd7 -- all surfaces compile
+# 0-warning, byte-identical to CRuby, in one compilation unit (verified). So
+# the codec is reunified. Spinel still has no tree-shaking (every loaded method
+# is compiled), but the only codec consumer (tep) both encodes and decodes, so
+# a single file costs it nothing. The builder stays separate because its sole
+# consumer (toy) is builder-only and should not compile the codec -- see
+# json_builder.rb. `require "spinel_kit/json_decoder"` still works (shim).
 #
 # WHY HAND-ROLLED. Spinel cannot lower the stdlib `json` gem (C-ext fast path
 # + metaprogrammed pure fallback); `oj`/`yajl`/`multi_json` are C extensions.
@@ -144,6 +145,395 @@ module SpinelKit
         i += 1
       end
       out + "]"
+    end
+
+    # ---- DECODERS (flat-key, top-level only) ----
+    # Merged from the former json_decoder.rb. These walkers used to live in a
+    # separate file because, pre-fix, their dead-code degradation widened the
+    # encoders' string args to int. That cross-method degrade is fixed (spinel
+    # master b60fbd7), so codec consumers (which decode as well as encode) keep
+    # the whole surface in one file. `require "spinel_kit/json_decoder"` still
+    # works via a back-compat shim.
+
+    def self.get_str(s, key)
+      pos = Json.find_value_start(s, key)
+      if pos < 0
+        return ""
+      end
+      Json.parse_str_value(s, pos)
+    end
+
+    def self.get_int(s, key)
+      pos = Json.find_value_start(s, key)
+      if pos < 0
+        return 0
+      end
+      Json.parse_int_value(s, pos)
+    end
+
+    # Decode a JSON number value at `key` -> Float. Accepts both
+    # integer-literal (`42`) and float-literal (`3.14`, `-0.5`, `1e2`)
+    # JSON-number syntax; the integer form returns N.0. Missing key or
+    # malformed value returns 0.0 (consistent with the other getters'
+    # missing-key defaults).
+    #
+    # Implementation: delegates the value-span walking to parse_float_value
+    # (skip_value handles all JSON-number syntax + structural-char boundaries),
+    # then String#to_f on the substring. Previously inlined to dodge a value-
+    # walk indirection that mis-widened `s` to int through the helper call;
+    # that is fixed on spinel master b60fbd7 (verified 0-warning), so it is now
+    # factored into parse_float_value.
+    def self.get_float(s, key)
+      pos = Json.find_value_start(s, key)
+      if pos < 0
+        return 0.0
+      end
+      Json.parse_float_value(s, pos)
+    end
+
+    # Parse a JSON-number span at `pos` -> Float. Returns 0.0 on end-of-input
+    # or an empty span.
+    def self.parse_float_value(s, pos)
+      pos = Json.skip_ws(s, pos)
+      if pos >= s.length
+        return 0.0
+      end
+      end_pos = Json.skip_value(s, pos)
+      if end_pos <= pos
+        return 0.0
+      end
+      s[pos, end_pos - pos].to_f
+    end
+
+    def self.has_key?(s, key)
+      Json.find_value_start(s, key) >= 0
+    end
+
+    # Decode a flat JSON array of integers at `key` -> Array[Integer].
+    # A missing or non-array value yields [] (the typed-empty-array idiom);
+    # non-int elements are skipped.
+    def self.get_int_array(s, key)
+      out = [0]
+      out.delete_at(0)
+      pos = Json.find_value_start(s, key)
+      if pos < 0
+        return out
+      end
+      pos = Json.skip_ws(s, pos)
+      if pos >= s.length || s[pos] != "["
+        return out
+      end
+      pos += 1
+      while pos < s.length
+        pos = Json.skip_ws(s, pos)
+        if pos >= s.length
+          return out
+        end
+        c = s[pos]
+        if c == "]"
+          return out
+        elsif c == ","
+          pos += 1
+        elsif (c >= "0" && c <= "9") || c == "-"
+          out.push(Json.parse_int_value(s, pos))
+          # Advance past the number parse_int_value just consumed
+          # (optional '-' then digits).
+          if s[pos] == "-"
+            pos += 1
+          end
+          while pos < s.length && s[pos] >= "0" && s[pos] <= "9"
+            pos += 1
+          end
+        else
+          # Non-int element (string / object / etc.): skip it.
+          pos = Json.skip_value(s, pos)
+        end
+      end
+      out
+    end
+
+    # ---- Internal helpers ----
+
+    # Skip whitespace starting at `pos`, return the new position.
+    def self.skip_ws(s, pos)
+      while pos < s.length
+        c = s[pos]
+        if c == " " || c == "\t" || c == "\n" || c == "\r"
+          pos += 1
+        else
+          return pos
+        end
+      end
+      pos
+    end
+
+    # Walk a JSON-quoted string starting at `pos` (which must point at the
+    # opening `"`). Returns the position one past the closing `"`. Returns
+    # -1 on malformed input.
+    def self.skip_str(s, pos)
+      if pos >= s.length || s[pos] != "\""
+        return -1
+      end
+      pos += 1
+      while pos < s.length
+        c = s[pos]
+        if c == "\\"
+          # Skip the escape and the escaped character. \uXXXX spans 6
+          # chars total but skipping 2 still keeps us inside the string
+          # for the rest of the walk -- the remaining 4 hex digits look
+          # like ordinary string bytes and won't terminate the literal.
+          pos += 2
+        elsif c == "\""
+          return pos + 1
+        else
+          pos += 1
+        end
+      end
+      -1
+    end
+
+    # Walk a JSON value starting at `pos` (which must point at the first
+    # non-ws char of the value). Returns the position one past the value
+    # (or the input length on truncation).
+    def self.skip_value(s, pos)
+      pos = Json.skip_ws(s, pos)
+      if pos >= s.length
+        return pos
+      end
+      c = s[pos]
+      if c == "\""
+        return Json.skip_str(s, pos)
+      end
+      if c == "{" || c == "["
+        return Json.skip_container(s, pos)
+      end
+      # number / true / false / null -- read until the next structural /
+      # whitespace char.
+      while pos < s.length
+        c = s[pos]
+        if c == "," || c == "}" || c == "]" ||
+           c == " " || c == "\t" || c == "\n" || c == "\r"
+          return pos
+        end
+        pos += 1
+      end
+      pos
+    end
+
+    # Walk a balanced { ... } or [ ... ] starting at `pos`. Honours string
+    # literals so that `{` / `}` inside a value-string don't confuse the
+    # brace counter. Returns position one past the matching closer.
+    def self.skip_container(s, pos)
+      open_c = s[pos]
+      close_c = open_c == "{" ? "}" : "]"
+      depth = 1
+      pos += 1
+      while pos < s.length && depth > 0
+        c = s[pos]
+        if c == "\""
+          # whole nested string -- skip past it
+          npos = Json.skip_str(s, pos)
+          if npos < 0
+            return s.length
+          end
+          pos = npos
+        elsif c == open_c
+          depth += 1
+          pos += 1
+        elsif c == close_c
+          depth -= 1
+          pos += 1
+        else
+          pos += 1
+        end
+      end
+      pos
+    end
+
+    # Read a JSON-quoted string at `pos` and return its decoded contents
+    # (no surrounding quotes). Decodes the same escape sequences that
+    # `escape` produces. Returns "" on malformed input.
+    def self.parse_str_value(s, pos)
+      pos = Json.skip_ws(s, pos)
+      if pos >= s.length || s[pos] != "\""
+        return ""
+      end
+      pos += 1
+      out = ""
+      while pos < s.length
+        c = s[pos]
+        if c == "\""
+          return out
+        end
+        if c == "\\"
+          if pos + 1 >= s.length
+            return out
+          end
+          esc = s[pos + 1]
+          if esc == "\""
+            out = out + "\""
+          elsif esc == "\\"
+            out = out + "\\"
+          elsif esc == "/"
+            out = out + "/"
+          elsif esc == "n"
+            out = out + "\n"
+          elsif esc == "r"
+            out = out + "\r"
+          elsif esc == "t"
+            out = out + "\t"
+          elsif esc == "b"
+            out = out + "\b"
+          elsif esc == "f"
+            out = out + "\f"
+          elsif esc == "u"
+            # \u00XX -> map the two-digit hex back to a byte. Wider
+            # codepoints (U+0100+ or surrogate pairs) aren't decoded; the
+            # byte we emit is the low byte of the codepoint, which
+            # round-trips ASCII at minimum.
+            if pos + 5 < s.length
+              h1 = Json.hex_nibble(s[pos + 4])
+              h2 = Json.hex_nibble(s[pos + 5])
+              if h1 >= 0 && h2 >= 0
+                # rebuild the byte and push it -- spinel strings are
+                # byte-blobs, so this works for ASCII; for non-ASCII the
+                # original encoder would have used a passthrough byte
+                # anyway.
+                b = h1 * 16 + h2
+                out = out + Json.byte_to_chr(b)
+                pos += 6
+                next
+              end
+            end
+            out = out + "?"
+            pos += 2
+            next
+          else
+            out = out + esc
+          end
+          pos += 2
+        else
+          out = out + c
+          pos += 1
+        end
+      end
+      out
+    end
+
+    def self.hex_nibble(c)
+      if c >= "0" && c <= "9"
+        return c.getbyte(0) - "0".getbyte(0)
+      end
+      if c >= "a" && c <= "f"
+        return c.getbyte(0) - "a".getbyte(0) + 10
+      end
+      if c >= "A" && c <= "F"
+        return c.getbyte(0) - "A".getbyte(0) + 10
+      end
+      -1
+    end
+
+    # Build a single-byte string from an integer 0..255. Spinel doesn't
+    # expose `n.chr` for arbitrary bytes uniformly; the table covers the
+    # ASCII printable range and falls back to "?" for anything else (the
+    # JSON encoder side never produces non-ASCII via \u, so the fallback
+    # is reachable only for malformed input).
+    def self.byte_to_chr(n)
+      printable = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+      if n >= 32 && n < 127
+        return printable[n - 32, 1]
+      end
+      if n == 9
+        return "\t"
+      end
+      if n == 10
+        return "\n"
+      end
+      if n == 13
+        return "\r"
+      end
+      "?"
+    end
+
+    # Read an integer at `pos`. Accepts an optional leading `-`. Returns 0
+    # on no-digit / non-numeric input (caller can use `has_key?` first if
+    # 0-vs-absent matters).
+    def self.parse_int_value(s, pos)
+      pos = Json.skip_ws(s, pos)
+      if pos >= s.length
+        return 0
+      end
+      neg = false
+      if s[pos] == "-"
+        neg = true
+        pos += 1
+      end
+      n = 0
+      saw_digit = false
+      while pos < s.length
+        c = s[pos]
+        if c >= "0" && c <= "9"
+          n = n * 10 + (c.getbyte(0) - "0".getbyte(0))
+          saw_digit = true
+          pos += 1
+        else
+          break
+        end
+      end
+      if !saw_digit
+        return 0
+      end
+      neg ? -n : n
+    end
+
+    # Walk the top-level object looking for the entry whose key matches
+    # `target_key`; return the position of the value's first non-ws
+    # character. Returns -1 if not found.
+    def self.find_value_start(s, target_key)
+      pos = Json.skip_ws(s, 0)
+      if pos >= s.length || s[pos] != "{"
+        return -1
+      end
+      pos += 1
+      while pos < s.length
+        pos = Json.skip_ws(s, pos)
+        if pos >= s.length
+          return -1
+        end
+        if s[pos] == "}"
+          return -1
+        end
+        # Read a key.
+        if s[pos] != "\""
+          return -1
+        end
+        key_start = pos
+        pos = Json.skip_str(s, pos)
+        if pos < 0
+          return -1
+        end
+        # Decode the key for comparison (handles \" inside keys).
+        key = Json.parse_str_value(s, key_start)
+        # Skip ws, ":".
+        pos = Json.skip_ws(s, pos)
+        if pos >= s.length || s[pos] != ":"
+          return -1
+        end
+        pos += 1
+        pos = Json.skip_ws(s, pos)
+        if key == target_key
+          return pos
+        end
+        # Skip the value, then the comma (if any).
+        pos = Json.skip_value(s, pos)
+        pos = Json.skip_ws(s, pos)
+        if pos < s.length && s[pos] == ","
+          pos += 1
+        elsif pos < s.length && s[pos] == "}"
+          return -1
+        end
+      end
+      -1
     end
   end
 end

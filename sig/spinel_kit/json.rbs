@@ -1,7 +1,8 @@
-# Advisory RBS for SpinelKit::Json encoders (lib/spinel_kit/json.rb).
-# Decoders are in json_decoder.rbs; the builder in json_builder.rbs.
+# Advisory RBS for the SpinelKit::Json codec (lib/spinel_kit/json.rb):
+# encoders + flat-key decoders. The builder is in json_builder.rbs.
 module SpinelKit
   class Json
+    # encoders
     def self.escape: (String s) -> String
     def self.hex2: (Integer n) -> String
     def self.quote: (String s) -> String
@@ -11,5 +12,24 @@ module SpinelKit
     def self.from_int_hash: (Hash[String, Integer] h) -> String
     def self.from_str_array: (Array[String] a) -> String
     def self.from_int_array: (Array[Integer] a) -> String
+
+    # decoders (flat-key, top-level only)
+    def self.get_str: (String s, String key) -> String
+    def self.get_int: (String s, String key) -> Integer
+    def self.get_float: (String s, String key) -> Float
+    def self.get_int_array: (String s, String key) -> Array[Integer]
+    def self.has_key?: (String s, String key) -> bool
+
+    # internal walkers
+    def self.skip_ws: (String s, Integer pos) -> Integer
+    def self.skip_str: (String s, Integer pos) -> Integer
+    def self.skip_value: (String s, Integer pos) -> Integer
+    def self.skip_container: (String s, Integer pos) -> Integer
+    def self.parse_str_value: (String s, Integer pos) -> String
+    def self.parse_float_value: (String s, Integer pos) -> Float
+    def self.hex_nibble: (String c) -> Integer
+    def self.byte_to_chr: (Integer n) -> String
+    def self.parse_int_value: (String s, Integer pos) -> Integer
+    def self.find_value_start: (String s, String target_key) -> Integer
   end
 end

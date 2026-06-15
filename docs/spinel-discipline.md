@@ -32,26 +32,34 @@ names (`escape`/`quote`/`add_str`/`sha`/`branch`/plain `value`).
 
 **Remaining rules:**
 
-- **Split the surface so consumers don't compile dead code.** Spinel has no
-  tree-shaking: every loaded method is compiled, and a *set* of uncalled
-  methods can degrade each other's (and nearby live methods') param types. We
-  saw this concretely — with the encoders and decoders in one class, an
-  encode-only program left the 9 decoder walkers dead; their `s` params
-  collapsed to `int` and dragged `escape`'s `s` to `int` too, silently
-  emitting `""` keys from `from_*_hash`. The fix was structural: encoders
-  (`json.rb`), decoders (`json_decoder.rb`), and builder (`json_builder.rb`)
-  live in separate files, so a consumer loads only a coherent surface it
-  actually exercises. Verified clean (0 emit-0, correct output) for the real
-  consumer shapes — builder-only (toy) and encode+decode (tep) — on rev
-  `57af7f9`. A consumer that loads a surface but leaves part of it uncalled can
-  still trip the gate; that's expected, and the gate is what flags it.
-- **`escape`/`quote`/`hex2` are single canonical methods** — the builder
-  carries its own byte-identical copies (so a builder-only compile pulls in no
-  codec); there is no `tj_*` prefix any more.
-- **Keep `get_float` inlined** (it does NOT delegate to a `parse_float_value`
-  helper). This is unrelated to the name bug — it's a value-walk *indirection*
-  issue where Spinel mis-widened the string arg `s` to int through the helper
-  call. Until that's separately confirmed fixed, leave it inlined.
+- **Split a file only where a real consumer benefits — not to dodge a bug.**
+  Spinel still has no tree-shaking: every loaded method is compiled into the
+  consumer's binary whether or not it is called. That is the *only* surviving
+  reason to split. The *other* reason we once split — that a set of uncalled
+  methods would **degrade each other's param types** (the dead decoder walkers
+  collapsing `escape`'s `s` to `int`, silently emitting `""` keys from
+  `from_*_hash`) — is **fixed on spinel master `b60fbd7`.** Verified: all five
+  surfaces in one compilation unit compile **0-warning, byte-identical to
+  CRuby**. So:
+  - **Encoders + decoders are reunified in `json.rb`.** The only codec consumer
+    (tep) both encodes and decodes, so co-locating costs it nothing.
+    `require "spinel_kit/json_decoder"` still resolves (a back-compat shim that
+    loads `json.rb`).
+  - **The builder stays in `json_builder.rb`** because its sole consumer (toy)
+    is *builder-only*; keeping the codec out of toy's compile is a deliberate
+    compile-size choice, not a bug workaround.
+  - Earlier degrade verification was on rev `57af7f9` (the split era); the
+    reunification is verified on `b60fbd7`. A consumer that loads a surface but
+    leaves part of it uncalled can still trip the gate; that's expected.
+- **`escape`/`quote`/`hex2` are single canonical methods in the codec** — the
+  builder keeps its own byte-identical copies *by design* (so a builder-only
+  compile pulls in no codec); there is no `tj_*` prefix any more. This is the
+  one intentional duplication left; drop it only if a consumer needs both
+  builder and codec.
+- **`get_float` is factored into `parse_float_value`.** It used to be inlined to
+  dodge a value-walk *indirection* that mis-widened the string arg `s` to int
+  through the helper call; that is **fixed on `b60fbd7`** (verified 0-warning),
+  so the helper is extracted.
 - **Never override `to_s`** — it merges across the whole program.
 - The stale cautionary comments in toy's `toy_json.rb`/`toy_git.rb` and the
   landmine memory note should be annotated "fixed upstream by `ac7720e`/

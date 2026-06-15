@@ -2,6 +2,31 @@
 
 All notable changes to SpinelKit are documented here.
 
+## [Unreleased] — de-workaround (target 0.3.0)
+
+> Gated on consumers re-pinning Spinel to a master-class rev (≥ the
+> `matz/spinel#1382` + `#1369` fixes; verified on master `b60fbd7`). On the
+> older consumer pin `f6d5eef` the reunified codec still emits poly-degrade
+> warnings, so **do not merge until tep/toy re-pin** (see tep#215, spinelgems#22).
+
+### Changed
+- **Reunified the JSON codec.** Encoders and the flat-key decoders are back in
+  one file (`lib/spinel_kit/json.rb`). The split existed only to stop the
+  uncalled decoder walkers from degrading the encoders' string args to int
+  (silent `""` keys from `from_*_hash`) — that cross-method poly-degrade is
+  **fixed on spinel master `b60fbd7`** (verified: all surfaces in one
+  compilation unit compile 0-warning, byte-identical to CRuby; `#1382` fixed).
+  `lib/spinel_kit/json_decoder.rb` is now a back-compat shim, so
+  `require "spinel_kit/json_decoder"` keeps working.
+- **Factored `get_float` into `parse_float_value`.** It was inlined to dodge a
+  value-walk indirection that mis-widened `s` to int; fixed on `b60fbd7`.
+
+### Kept (deliberately)
+- **`SpinelKit::Json::Builder` stays in its own file with its own
+  `escape`/`quote`/`hex2`.** This isolation is a compile-size choice for the
+  builder-only consumer (toy), not a bug workaround — Spinel still has no
+  tree-shaking.
+
 ## [0.2.0] - 2026-06-08
 
 ### Added
