@@ -6,18 +6,38 @@
 ![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.2-CC342D)
 ![Pure Ruby](https://img.shields.io/badge/native%20ext-none-brightgreen)
 
-**The Spinel stdlib-surface gem.** A pure-Ruby, Spinel-safe toolkit holding
-the generic "stdlib substitute" shims that every Spinel-compiled project would
-otherwise hand-roll.
+**The non-stdlib toolkit for Spinel-compiled apps.** A pure-Ruby, Spinel-safe
+library holding the shims [Spinel](https://github.com/matz/spinel) (the
+Ruby→native AOT compiler) does not provide and that every Spinel project
+would otherwise hand-roll: **git provenance, URL percent-codec + query
+parsing, a minimal levelled logger, and a hex codec**.
+[toy](https://github.com/OriPekelman/toy) and
+[tep](https://github.com/OriPekelman/tep) grew these independently — parts
+came out *byte-identical* — and SpinelKit is that code, consolidated once.
 
-[Spinel](https://github.com/matz/spinel) is a Ruby→native AOT compiler. It
-cannot lower large chunks of the CRuby standard library — the `json` gem's
-C-extension fast path and its metaprogrammed pure-Ruby fallback, stdlib
-`Logger`, C-extension git bindings, and more. So every Spinel project re-derives
-the same shims. [toy](https://github.com/OriPekelman/toy) and
-[tep](https://github.com/OriPekelman/tep) grew theirs independently, and the
-JSON escape/quote/hex code came out *byte-identical*. SpinelKit is that code,
-consolidated once.
+## Where JSON went
+
+SpinelKit began as "the stdlib-surface gem," and its founding surface was a
+JSON codec. Spinel now **bundles `json` as a require-gated stdlib package** —
+a typed native binding straight into the runtime's `sp_json.c` — so the
+compiler provides the stdlib surface itself and `SpinelKit::Json` was retired
+in 0.3.0 ([#3](https://github.com/OriPekelman/spinelkit/issues/3)). Migration:
+
+```ruby
+require "json"                        # bare stdlib require, no manifest entry
+
+h = JSON.parse(body)
+model      = h["model"].to_s          # coerce at the parse boundary and
+max_tokens = h["max_tokens"].to_i     # everything downstream stays fully
+temp       = h["temperature"].to_f    # specialized under whole-program
+ids        = h["prompt"].map { |x| x.to_i }  # inference
+
+JSON.generate({ "ok" => true, "n" => max_tokens })   # replaces the Builder
+```
+
+Coerce parsed values once at the boundary (`.to_s`/`.to_i`/`.to_f`/mapped
+`.to_i`) — verified against spinel master: byte-identical CRuby parity, no
+cross-degrade, and full re-typification with the coercions in place.
 
 ## Installation
 
@@ -38,20 +58,20 @@ cleanly into a Spinel build via [bundler-spinel](https://github.com/OriPekelman/
 
 The first thing we did was audit the
 [spinelgems](https://github.com/OriPekelman/spinelgems) compatibility catalog
-(verdict ladder: `verified > loaded > clean > risky > rejected`) for an existing
-gem to reuse — that would have been the biggest win. **There wasn't one.** These
-shims *are* the ecosystem's gaps:
+(verdict ladder: `verified > loaded > clean > risky > rejected`) for existing
+gems to reuse — that would have been the biggest win. **There weren't any.**
+These shims *are* the ecosystem's gaps:
 
 | Surface | Catalog finding | Decision |
 |---------|-----------------|----------|
-| JSON    | `json` **rejected** (C-ext + metaprogrammed fallback); `oj` **risky** (C-ext) | implement |
 | Log     | `logger` **rejected** (unresolved calls) | implement |
 | Git     | `rugged` **rejected** (C); `gitkite`/`git_manager` only **clean**, unmet `needs:` | implement (read `.git/HEAD`) |
+| Url/Hex | `CGI`/`URI` stdlib not lowered; no verified gem | implement |
 | Path    | `hike` **verified** at an older rev, only **loaded** now; overkill for basename/join | deferred |
 | Bytes   | `unicode_utils`/`utf8-cleaner` **clean** only; toy's need is tokenizer-specific | deferred |
 
-See [`docs/gem-audit-first.md`](docs/gem-audit-first.md) for the full audit and
-the verification-request issues we filed on spinelgems.
+See [`docs/gem-audit-first.md`](docs/gem-audit-first.md) for the full audit
+(which also covers the since-retired JSON surface).
 
 ## What's in it
 
@@ -61,31 +81,8 @@ require "spinel_kit"   # everything (CRuby / convenience)
 
 For a **Spinel-compiled** consumer, require only the surface you use — Spinel
 has no tree-shaking, so every loaded method is compiled (and an uncalled one
-can degrade). The Json surface is split into three files for exactly this
-reason: `spinel_kit/json` (encoders), `spinel_kit/json_decoder` (decoders), and
-`spinel_kit/json_builder` (the builder). e.g. tep requires `json` + `json_decoder`;
-toy requires `json_builder`.
-
-- **`SpinelKit::Json`** — a JSON-over-HTTP codec: encoders
-  (`escape`/`quote`/`encode_pair_*`/`from_*`, in `spinel_kit/json`) and flat-key
-  decoders (`get_str`/`get_int`/`get_float`/`get_int_array`/`has_key?`, in
-  `spinel_kit/json_decoder`).
-
-  ```ruby
-  SpinelKit::Json.get_int('{"age":33}', "age")             # => 33
-  SpinelKit::Json.from_int_hash({"a" => 1, "b" => 2})      # => {"a":1,"b":2}
-  ```
-
-- **`SpinelKit::Json::Builder`** — an incremental ordered-object builder
-  (`add_str`/`add_num`/`add_bool`/`add_raw`/`add_obj`/`dump`), in its own file
-  so a builder-only consumer never compiles the codec, and vice versa.
-
-  ```ruby
-  j = SpinelKit::Json::Builder.new
-  j.add_str("kind", "run_start")
-  j.add_num("t", 1715000000)
-  j.dump                                     # => {"kind":"run_start","t":1715000000}
-  ```
+can degrade): `spinel_kit/hex`, `spinel_kit/url` (pulls in hex),
+`spinel_kit/git`, `spinel_kit/log`.
 
 - **`SpinelKit::Git`** — git provenance from `.git/HEAD`.
 
@@ -93,6 +90,15 @@ toy requires `json_builder`.
   g = SpinelKit::Git.read
   g.sha          # => "a1b2c3..." (or "unknown" outside a repo)
   g.branch       # => "main"
+  ```
+
+- **`SpinelKit::Url`** — the `CGI`/`URI`-component surface:
+  `escape`/`unescape` (RFC 3986 percent-codec), `parse_query`
+  (form-urlencoded → Hash), `split_url` (scheme/host/port/path/query).
+
+  ```ruby
+  SpinelKit::Url.escape("a b&c")            # => "a%20b%26c"
+  SpinelKit::Url.parse_query("x=1&y=z")     # => {"x"=>"1", "y"=>"z"}
   ```
 
 - **`SpinelKit::Log`** — a minimal levelled logger (CRuby `Logger` doesn't
@@ -104,6 +110,9 @@ toy requires `json_builder`.
   log.info("server up")
   ```
 
+- **`SpinelKit::Hex`** — hex digit/byte encode + decode (`nibble`,
+  `nibble_char`, `byte2`, `to_int`); the shared surface `Url` builds on.
+
 ## Design constraints (read before editing)
 
 SpinelKit is **pure Ruby, no native extension** (`spinel-ext.json` is `[]`) and
@@ -111,19 +120,19 @@ has **no runtime dependencies**, so it vendors cleanly via `bundler-spinel`. The
 surface uses plain, standard names; the `j_`/`tj_`/`gi_` prefixes the donor
 copies carried were a workaround for a Spinel whole-program-inference bug that
 has since been fixed upstream (verified with toy's `gate-poly-degrade` on the
-current compiler). One numeric caveat remains for `add_num` — see
-[`docs/spinel-discipline.md`](docs/spinel-discipline.md).
+current compiler). See [`docs/spinel-discipline.md`](docs/spinel-discipline.md).
 
 ## Status
 
-Pre-alpha (`0.1.0`). The shims are implemented, CRuby-verified, and the surface
-is the single canonical one (the donor prefixes and duplicated escapers are
-gone — the Spinel inference bug that motivated them is fixed). Consumer adoption
-is the next phase: because we author every repo in this set, tep and toy
-**migrate to `SpinelKit::*` directly and delete their donor modules** — we
-standardize and clean rather than leave compatibility aliases behind. See
-[`docs/adoption.md`](docs/adoption.md). Tracking issue:
-[OriPekelman/toy#44](https://github.com/OriPekelman/toy/issues/44).
+Pre-alpha (`0.3.0` — the JSON retirement). tep and toy migrated to
+`SpinelKit::*` directly and deleted their donor modules (see
+[`docs/adoption.md`](docs/adoption.md)); their JSON call sites migrate to the
+bundled stdlib `json` next
+([tep#217](https://github.com/OriPekelman/tep/issues/217),
+[tep#213](https://github.com/OriPekelman/tep/issues/213)). The next shape
+change is repackaging as a [spin](https://github.com/matz/spin-index) package
+named `spinel_kit`, tracked in
+[#3](https://github.com/OriPekelman/spinelkit/issues/3).
 
 ## Development
 

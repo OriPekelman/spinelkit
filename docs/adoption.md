@@ -1,5 +1,13 @@
 # Adoption — standardize and clean (not shim-and-alias)
 
+> **Historical note (2026-07-08).** This doc describes the 0.1–0.2 era
+> migration of tep and toy onto `SpinelKit::*`, including the Json surface.
+> `SpinelKit::Json`/`Builder` were **retired in 0.3.0** — Spinel now bundles
+> `json` as a stdlib package, and the Json call sites below migrate again, to
+> bare `require "json"` (see
+> [#3](https://github.com/OriPekelman/spinelkit/issues/3) and the CHANGELOG
+> migration note). The Git/Url/Log/Hex parts remain accurate.
+
 Bootstrap landed the gem and its three shims. Adoption by tep and toy is the
 next phase. **Because we author every repo in this set — toy, tep, spinelgems,
 and Spinel itself — the goal is to standardize and clean, not to bolt

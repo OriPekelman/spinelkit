@@ -35,27 +35,23 @@ names (`escape`/`quote`/`add_str`/`sha`/`branch`/plain `value`).
 - **Split the surface so consumers don't compile dead code.** Spinel has no
   tree-shaking: every loaded method is compiled, and a *set* of uncalled
   methods can degrade each other's (and nearby live methods') param types. We
-  saw this concretely — with the encoders and decoders in one class, an
-  encode-only program left the 9 decoder walkers dead; their `s` params
-  collapsed to `int` and dragged `escape`'s `s` to `int` too, silently
-  emitting `""` keys from `from_*_hash`. The fix was structural: encoders
-  (`json.rb`), decoders (`json_decoder.rb`), and builder (`json_builder.rb`)
-  live in separate files, so a consumer loads only a coherent surface it
-  actually exercises. Verified clean (0 emit-0, correct output) for the real
-  consumer shapes — builder-only (toy) and encode+decode (tep) — on rev
-  `57af7f9`. A consumer that loads a surface but leaves part of it uncalled can
-  still trip the gate; that's expected, and the gate is what flags it.
-- **`escape`/`quote`/`hex2` are single canonical methods** — the builder
-  carries its own byte-identical copies (so a builder-only compile pulls in no
-  codec); there is no `tj_*` prefix any more.
-- **Keep `get_float` inlined** (it does NOT delegate to a `parse_float_value`
-  helper). This is unrelated to the name bug — it's a value-walk *indirection*
-  issue where Spinel mis-widened the string arg `s` to int through the helper
-  call. Until that's separately confirmed fixed, leave it inlined.
+  saw this concretely in the retired Json surface — with the encoders and
+  decoders in one class, an encode-only program left the 9 decoder walkers
+  dead; their `s` params collapsed to `int` and dragged `escape`'s `s` to
+  `int` too, silently emitting `""` keys. The fix was structural: one
+  coherent surface per file (today: `hex.rb`, `url.rb`, `git.rb`, `log.rb`),
+  so a consumer loads only what it actually exercises. A consumer that loads
+  a surface but leaves part of it uncalled can still trip the gate; that's
+  expected, and the gate is what flags it.
 - **Never override `to_s`** — it merges across the whole program.
 - The stale cautionary comments in toy's `toy_json.rb`/`toy_git.rb` and the
   landmine memory note should be annotated "fixed upstream by `ac7720e`/
   `23ba632`, verified on `57af7f9`" when those repos are next touched.
+
+(Historical, retired with the Json surface in 0.3.0: the three-file Json
+split, the builder's byte-identical private escapers, and the keep-`get_float`
+-inlined rule. The last known instance of the value-walk indirection issue was
+verified fixed on master `b60fbd7`.)
 
 ## 2. The poly-degrade gate (how consumers verify SpinelKit is safe)
 
@@ -101,6 +97,7 @@ destined for Spinel. SpinelKit's own decoders follow this rule.
   runs, but file output is the portable path.
 - `Time.now` exposes integer seconds only (no rich `strftime`) — `Log` formats
   with `Time.now.to_i`.
-- `Integer#chr` is not uniform for arbitrary bytes — `Json.byte_to_chr` uses a
-  printable-ASCII table with a `"?"` fallback.
+- `Integer#chr` is not uniform for arbitrary bytes — the retired Json surface
+  used a printable-ASCII table with a `"?"` fallback; apply the same pattern
+  if a surface ever needs byte→char again.
 - No C extensions — `spinel-ext.json` is `[]`.

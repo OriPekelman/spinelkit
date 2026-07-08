@@ -3,16 +3,16 @@ require_relative "lib/spinel_kit/version"
 Gem::Specification.new do |s|
   s.name        = "spinel_kit"
   s.version     = SpinelKit::VERSION
-  s.summary     = "The Spinel stdlib-surface gem: pure-Ruby JSON/Git/Log shims for AOT-compiled apps"
+  s.summary     = "Pure-Ruby Git/Url/Log/Hex shims for Spinel AOT-compiled apps"
   s.description = <<~TEXT.strip
-    SpinelKit consolidates the pure-Ruby "stdlib substitute" shims that every
-    Spinel-compiled project would otherwise hand-roll. Spinel (the Ruby->native
-    AOT compiler) cannot lower the json gem's C-ext fast path / metaprogrammed
-    fallback, stdlib Logger, or C-ext git bindings -- and the spinelgems
-    compatibility catalog confirms no verified gem exists to reuse. So this gem
-    ships a JSON encoder+decoder+builder, .git/HEAD provenance, and a minimal
-    levelled logger. Pure Ruby, no native extension, no runtime dependencies --
-    it vendors cleanly via bundler-spinel. Pre-alpha.
+    SpinelKit consolidates the pure-Ruby shims that every Spinel-compiled
+    project would otherwise hand-roll and that Spinel (the Ruby->native AOT
+    compiler) does not provide: .git/HEAD provenance, URL percent-codec +
+    query parsing, a minimal levelled logger, and a hex digit/byte codec.
+    (JSON left in 0.3.0: Spinel now bundles `json` as a require-gated stdlib
+    package, so consumers use JSON.parse/JSON.generate directly.) Pure Ruby,
+    no native extension, no runtime dependencies -- it vendors cleanly via
+    bundler-spinel. Pre-alpha.
   TEXT
   s.authors     = ["Ori Pekelman"]
   s.email       = ["ori@pekelman.com"]
@@ -50,6 +50,6 @@ Gem::Specification.new do |s|
   s.require_paths = ["lib"]
 
   # No runtime dependencies -- Spinel-compiled consumers vendor the lib/
-  # directly. No development dependencies either: the parity test uses only
-  # stdlib `minitest` + `json` (CRuby-side verification, never compiled).
+  # directly. No development dependencies either: the parity tests use only
+  # stdlib `minitest` (CRuby-side verification, never compiled).
 end
