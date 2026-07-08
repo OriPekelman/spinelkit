@@ -2,6 +2,28 @@
 
 All notable changes to SpinelKit are documented here.
 
+## [0.3.0] - Unreleased
+
+### Removed
+- **`SpinelKit::Json` and `SpinelKit::Json::Builder`** (`lib/spinel_kit/json.rb`,
+  `json_decoder.rb`, `json_builder.rb`, their `sig/` RBS and the parity test).
+  Spinel now bundles `json` as a require-gated stdlib package — a typed native
+  binding (`native_func :parse/:generate/:dump`) into the runtime's
+  `sp_json.c` — so the compiler provides the stdlib surface SpinelKit was
+  shimming ([#3](https://github.com/OriPekelman/spinelkit/issues/3)).
+  Verified on spinel master `f9a81b1d` with a tep-shaped consumer under
+  `SPINEL_REQUIRE_GATE=1`: byte-identical CRuby parity and **no
+  cross-degrade**; values from `JSON.parse` must be coerced at the boundary
+  (`.to_s`/`.to_i`/`.to_f`/`.map { |x| x.to_i }`) to stay fully typed —
+  without coercion, direct sinks widen to `untyped` (slow path, still
+  correct output).
+
+  **Migration:** `require "json"`; `JSON.parse(s)["k"].to_i` replaces
+  `SpinelKit::Json.get_int(s, "k")` (same shape for `get_str`/`get_float`/
+  `get_int_array`); `h.key?("k")` replaces `has_key?(s, "k")`;
+  `JSON.generate(hash)` replaces `encode_pair_*`/`from_*` and the Builder
+  (Ruby hashes are insertion-ordered; `native_obj_reflect` covers Structs).
+
 ## [0.2.0] - 2026-06-08
 
 ### Added

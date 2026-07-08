@@ -1,20 +1,20 @@
-# SpinelKit -- the Spinel stdlib-surface gem.
+# SpinelKit -- the non-stdlib toolkit for Spinel-compiled apps.
 #
-# A pure-Ruby, Spinel-safe toolkit holding the generic "stdlib substitute"
-# shims that every Spinel-compiled project would otherwise hand-roll. Spinel
-# (the Ruby->native AOT compiler) cannot lower large chunks of CRuby stdlib
-# -- the `json` gem's C-ext fast path and metaprogrammed pure-Ruby fallback,
-# stdlib `Logger`, C-ext git bindings -- and the spinelgems compatibility
-# catalog confirms there is no verified gem to reuse for any of them. So this
-# gem consolidates the shims toy and tep each grew independently:
+# A pure-Ruby, Spinel-safe toolkit holding the shims Spinel (the Ruby->native
+# AOT compiler) does not provide and that every Spinel-compiled project would
+# otherwise hand-roll:
 #
-#   SpinelKit::Json          -- JSON encoders (json.rb) + flat-key decoders
-#                               (json_decoder.rb).
-#   SpinelKit::Json::Builder -- incremental ordered-object builder.
-#   SpinelKit::Hex           -- hex digit/byte encode + decode.
-#   SpinelKit::Url           -- percent-encode/decode + form-query + URL split.
-#   SpinelKit::Git           -- git provenance from .git/HEAD (was Toy::Git).
-#   SpinelKit::Log           -- minimal levelled logger (was Tep::Logger).
+#   SpinelKit::Hex -- hex digit/byte encode + decode.
+#   SpinelKit::Url -- percent-encode/decode + form-query + URL split.
+#   SpinelKit::Git -- git provenance from .git/HEAD (was Toy::Git).
+#   SpinelKit::Log -- minimal levelled logger (was Tep::Logger).
+#
+# JSON is NOT here any more. Spinel bundles `json` as a require-gated stdlib
+# package (a typed native binding into sp_json.c), so consumers write a bare
+# `require "json"` and use JSON.parse / JSON.generate, coercing parsed values
+# at the boundary (`.to_s` / `.to_i` / `.to_f` / `.map { |x| x.to_i }`) to
+# keep inference fully typed. The old SpinelKit::Json codec + Builder were
+# retired in 0.3.0 -- see CHANGELOG.md and issue #3.
 #
 # MINIMAL-SURFACE REQUIRING. This umbrella requires everything for
 # convenience (and for CRuby use). But because Spinel compiles every loaded
@@ -22,9 +22,6 @@
 # the file(s) it uses, to avoid compiling -- and degrading -- code it never
 # calls:
 #
-#   require "spinel_kit/json"          # encoders
-#   require "spinel_kit/json_decoder"  # decoders (require alongside json if you decode)
-#   require "spinel_kit/json_builder"  # builder
 #   require "spinel_kit/hex"           # hex digit/byte codec
 #   require "spinel_kit/url"           # percent-codec + query (pulls in hex)
 #   require "spinel_kit/git"
@@ -33,9 +30,6 @@
 # No native extension (spinel-ext.json is []), no runtime dependencies. See
 # docs/adoption.md and docs/spinel-discipline.md.
 require_relative "spinel_kit/version"
-require_relative "spinel_kit/json"
-require_relative "spinel_kit/json_decoder"
-require_relative "spinel_kit/json_builder"
 require_relative "spinel_kit/hex"
 require_relative "spinel_kit/url"
 require_relative "spinel_kit/git"

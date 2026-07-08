@@ -1,12 +1,8 @@
 # SpinelKit::Hex -- hex digit/byte encode + decode: the pieces every Spinel
 # project re-rolls. The decode nibble appeared BYTE-IDENTICAL in Tep::Url,
-# inside SpinelKit::Json's string decoder, and (as a multi-digit variant) in
-# Tep::Llm's chunked-transfer size parser. Pure string/byte ops, Spinel-safe.
-#
-# NOTE on the Json overlap: SpinelKit::Json keeps its OWN private `hex2`/
-# `hex_nibble` so a JSON-only consumer never compiles this file (Spinel has no
-# tree-shaking — see json.rb). Hex is the shared surface for everyone else,
-# e.g. SpinelKit::Url.
+# in the retired SpinelKit::Json string decoder, and (as a multi-digit
+# variant) in Tep::Llm's chunked-transfer size parser. Pure string/byte ops,
+# Spinel-safe. Hex is the shared surface, e.g. for SpinelKit::Url.
 module SpinelKit
   class Hex
     # Hex digit char -> int 0..15, or -1 if not a hex digit (upper or lower).
