@@ -2,7 +2,7 @@
 
 SpinelKit ships code that gets compiled into *other* programs by Spinel's
 whole-program AOT compiler. That changes the rules for how it must be written.
-This doc is the contract for anyone editing `lib/spinel_kit/*.rb`.
+This doc is the contract for anyone editing `spinel_kit/*.rb`.
 
 ## 1. The name-keyed inference bug — FIXED, prefixes dropped
 

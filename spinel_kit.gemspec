@@ -1,4 +1,4 @@
-require_relative "lib/spinel_kit/version"
+require_relative "spinel_kit/version"
 
 Gem::Specification.new do |s|
   s.name        = "spinel_kit"
@@ -41,13 +41,20 @@ Gem::Specification.new do |s|
     # SpinelKit is pure Ruby -- but ships at the gem root so `spinel-compat
     # vendor` finds it and records "no native build units" explicitly.
     "spinel-ext.json",
-    "lib/**/*.rb",
+    # spin package manifest -- the same tree is an ordinary spin package
+    # (issue #3); the package root is the require root, hence no lib/.
+    "spin.toml",
+    "spinel_kit.rb",
+    "spinel_kit/**/*.rb",
     "sig/**/*.rbs",
     "docs/**/*.md"
   ].reject { |f| File.directory?(f) }
    .select { |f| tracked.empty? || tracked.include?(f) }
 
-  s.require_paths = ["lib"]
+  # The package root is the require root (spin's package format: `require
+  # "spinel_kit"` maps to ./spinel_kit.rb). The gem mirrors that with "."
+  # so one tree serves both consumers.
+  s.require_paths = ["."]
 
   # No runtime dependencies -- Spinel-compiled consumers vendor the lib/
   # directly. No development dependencies either: the parity tests use only

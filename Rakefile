@@ -3,9 +3,11 @@
 # code is vendored into a Spinel build.
 require "rake/testtask"
 
+# The CRuby minitest suite lives in test/parity/ (spin treats top-level
+# test/*.rb as compiled snapshot entries; subdirectories are ignored).
 Rake::TestTask.new(:test) do |t|
-  t.libs << "lib" << "test"
-  t.pattern = "test/**/*_test.rb"
+  t.libs << "." << "test"
+  t.pattern = "test/parity/*_test.rb"
   t.warning = false
 end
 
