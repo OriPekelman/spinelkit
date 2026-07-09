@@ -2,7 +2,7 @@
 
 All notable changes to SpinelKit are documented here.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-07-09
 
 ### Changed
 - **Converted to a spin package** (spin is Spinel's package system;
