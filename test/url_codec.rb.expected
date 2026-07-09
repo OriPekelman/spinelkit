@@ -1,0 +1,13 @@
+abc-XYZ_0.9~
+a%20b%26c%3Dd%2Fe%3Ff
+
+a b
+A &
+100%
+%zz
+{"a" => "1", "b" => "two", "c" => ""}
+{"k ey" => "v&al"}
+{}
+{"scheme" => "http", "host" => "example.com", "port" => "80", "path" => "/x/y", "query" => "q=1"}
+{"scheme" => "https", "host" => "example.com", "port" => "8443", "path" => "/", "query" => ""}
+{"scheme" => "", "host" => "", "port" => "", "path" => "/just/a/path", "query" => "k=v"}

@@ -122,22 +122,42 @@ copies carried were a workaround for a Spinel whole-program-inference bug that
 has since been fixed upstream (verified with toy's `gate-poly-degrade` on the
 current compiler). See [`docs/spinel-discipline.md`](docs/spinel-discipline.md).
 
+## Package formats: spin package + gem, one tree
+
+This repo **is a [spin](https://github.com/matz/spin-index) package** (spin is
+Spinel's package system): the package root is the require root
+(`spinel_kit.rb` + `spinel_kit/` at top level), `spin.toml` carries the
+identity, and the top-level `test/*.rb` programs are compiled snapshot tests
+(`spin test` — each diffs against its committed `.expected`, byte-identical
+under CRuby too). Spinel projects take it with:
+
+```sh
+spin add spinel_kit            # index form, once seeded — or:
+spin add spinel_kit --git https://github.com/OriPekelman/spinelkit
+```
+
+The same tree still ships as the `spinel_kit` **gem** for CRuby-side
+consumers (`require_paths` is the package root), and vendors via
+`bundler-spinel` as before.
+
 ## Status
 
-Pre-alpha (`0.3.0` — the JSON retirement). tep and toy migrated to
-`SpinelKit::*` directly and deleted their donor modules (see
+Pre-alpha (`0.3.0` — the JSON retirement + spin package conversion). tep and
+toy migrated to `SpinelKit::*` directly and deleted their donor modules (see
 [`docs/adoption.md`](docs/adoption.md)); their JSON call sites migrate to the
 bundled stdlib `json` next
 ([tep#217](https://github.com/OriPekelman/tep/issues/217),
-[tep#213](https://github.com/OriPekelman/tep/issues/213)). The next shape
-change is repackaging as a [spin](https://github.com/matz/spin-index) package
-named `spinel_kit`, tracked in
-[#3](https://github.com/OriPekelman/spinelkit/issues/3).
+[tep#213](https://github.com/OriPekelman/tep/issues/213)), and their
+dependency declarations move to `spin.toml`
+([tep#234](https://github.com/OriPekelman/tep/issues/234),
+[toy#107](https://github.com/OriPekelman/toy/issues/107)). Repositioning
+tracked in [#3](https://github.com/OriPekelman/spinelkit/issues/3).
 
 ## Development
 
 ```sh
-rake test            # CRuby-side parity tests (never compiled)
+rake test            # CRuby-side parity tests, test/parity/ (never compiled)
+spin test            # compiled snapshot tests, test/*.rb vs .expected
 rake rbs:validate    # syntax-check the advisory RBS in sig/
 gem build spinel_kit.gemspec
 ```

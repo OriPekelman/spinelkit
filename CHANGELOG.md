@@ -4,6 +4,17 @@ All notable changes to SpinelKit are documented here.
 
 ## [0.3.0] - Unreleased
 
+### Changed
+- **Converted to a spin package** (spin is Spinel's package system;
+  [#3](https://github.com/OriPekelman/spinelkit/issues/3)). The package root
+  is now the require root: `lib/spinel_kit{,.rb}` moved to the repo top level,
+  `spin.toml` carries the identity (`name = "spinel_kit"`), and the gem
+  mirrors the layout with `require_paths = ["."]` — one tree serves both
+  consumers. Tests split by oracle: `test/*.rb` are compiled `spin test`
+  snapshot programs with committed `.expected` files (verified byte-identical
+  under CRuby and under spinel master `f9a81b1d`, 4/4); the CRuby minitest
+  parity suite moved to `test/parity/`.
+
 ### Removed
 - **`SpinelKit::Json` and `SpinelKit::Json::Builder`** (`lib/spinel_kit/json.rb`,
   `json_decoder.rb`, `json_builder.rb`, their `sig/` RBS and the parity test).

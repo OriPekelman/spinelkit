@@ -6,3 +6,4 @@
 *.a
 *.bundle
 .DS_Store
+/build/
