@@ -32,15 +32,36 @@ class UrlTest < Minitest::Test
     end
   end
 
-  # The codec is byte-oriented (under Spinel, String#[] indexes bytes — strings
-  # are byte-blobs). Pass binary so CRuby's String#[] is byte-indexed too, then
-  # each UTF-8 byte round-trips through %XX. (A non-binary multibyte string in
-  # CRuby would split on characters, not bytes — a CRuby/Spinel difference, not
-  # a codec bug; under Spinel the plain string is already bytes.)
+  # The codec is byte-oriented, and escape walks bytes to be so, so a binary
+  # string and the plain one it came from escape identically.
   def test_escape_unescape_utf8_bytes
     assert_equal "%C3%A9", U.escape("é".b)
     assert_equal "é".b, U.unescape("%C3%A9").b
     assert_equal "%E2%82%AC", U.escape("€".b)   # 3-byte char
+  end
+
+  # The case the `.b` above used to stand in for. escape indexed with
+  # String#[] and encoded c.getbyte(0) — the FIRST byte of the character — on
+  # the premise that `[]` indexes bytes under Spinel. It does not:
+  # `"café".length` is 4 there and `[3]` is a two-byte "é". So a plain UTF-8
+  # string lost every byte but the first of each character, on BOTH runtimes
+  # identically — "café" escaped to "caf%C3", which does not unescape back.
+  # Only ever passing `.b` here is what let it stand.
+  def test_escape_multibyte_without_forcing_binary
+    assert_equal "caf%C3%A9", U.escape("café")
+    assert_equal "%E2%82%AC", U.escape("€")
+    assert_equal "%F0%9F%98%80", U.escape("😀")   # 4-byte char
+    # Same answer either way, which is the property that was missing.
+    ["café", "€", "😀"].each { |s| assert_equal U.escape(s.b), U.escape(s) }
+    # And the bytes come back (unescape answers a byte string, as it always has).
+    assert_equal "café".b, U.unescape(U.escape("café")).b
+  end
+
+  # CGI.escape is the form encoder (space -> "+"); escapeURIComponent is the
+  # one this matches on everything but the space, so compare there.
+  def test_escape_matches_cgi_on_multibyte
+    assert_equal CGI.escape("café").sub("+", "%20"), U.escape("café")
+    assert_equal CGI.escape("😀"), U.escape("😀")
   end
 
   def test_parse_query
