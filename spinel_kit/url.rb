@@ -42,20 +42,26 @@ module SpinelKit
     # (ALPHA / DIGIT / `-._~`); the rest becomes `%XX` with UPPERCASE hex.
     # (Space -> `%20`, not `+` -- this is the URI-component, not form, encoder.)
     #
-    # Byte-oriented: under Spinel `String#[]` indexes BYTES, so a multi-byte
-    # UTF-8 char is encoded byte-by-byte (correct %XX of each byte). Under CRuby,
-    # pass a binary string for the same behaviour (else `[]` splits on chars).
+    # Byte-oriented, and it walks BYTES to be so: `bytesize`/`getbyte` mean
+    # a multi-byte UTF-8 character becomes the %XX of each of its bytes on
+    # both runtimes, with no binary-string dance at the call site.
+    #
+    # It used to index with `String#[]` and encode `c.getbyte(0)` -- the
+    # FIRST byte of the character -- on the premise that `[]` indexes bytes
+    # under Spinel. It does not: `"caf\u00e9".length` is 4 there and `[3]`
+    # is a two-byte "\u00e9", so every byte but the first was DROPPED and
+    # "caf\u00e9" escaped to "caf%C3", which does not unescape back.
     def self.escape(s)
       out = ""
       i = 0
-      while i < s.length
-        c = s[i]
-        if (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") ||
-           (c >= "0" && c <= "9") || c == "-" || c == "." ||
-           c == "_" || c == "~"
-          out = out + c
+      n = s.bytesize
+      while i < n
+        b = s.getbyte(i)
+        if (b >= 0x61 && b <= 0x7A) || (b >= 0x41 && b <= 0x5A) ||
+           (b >= 0x30 && b <= 0x39) || b == 0x2D || b == 0x2E ||
+           b == 0x5F || b == 0x7E
+          out = out + b.chr
         else
-          b = c.getbyte(0)
           out = out + "%" + Hex.nibble_char(b / 16) + Hex.nibble_char(b % 16)
         end
         i += 1
