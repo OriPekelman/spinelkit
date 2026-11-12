@@ -2,7 +2,7 @@
 
 All notable changes to SpinelKit are documented here.
 
-## [Unreleased]
+## [0.3.1] - 2026-11-12
 
 ### Fixed
 - **`SpinelKit::Url.escape` dropped all but the first byte of a multi-byte

@@ -2,5 +2,5 @@
 # without loading the rest of the library (the modules pull in no deps,
 # but this matches the toy/tep convention exactly).
 module SpinelKit
-  VERSION = "0.3.0"
+  VERSION = "0.3.1"
 end
