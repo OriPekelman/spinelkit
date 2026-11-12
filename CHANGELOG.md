@@ -2,6 +2,18 @@
 
 All notable changes to SpinelKit are documented here.
 
+## [Unreleased]
+
+### Fixed
+- **`SpinelKit::Url.escape` dropped all but the first byte of a multi-byte
+  character.** It indexed with `String#[]` and encoded `c.getbyte(0)`, on the
+  documented premise that `[]` indexes bytes under Spinel. It does not —
+  `"café".length` is 4 there and `[3]` is a two-byte `"é"` — so `"café"`
+  escaped to `"caf%C3"` on both runtimes, and that does not unescape back.
+  It now walks `bytesize`/`getbyte`. ASCII input and the `.b` form that the
+  parity test used are unchanged; what changes is that a plain UTF-8 string
+  now answers the same as its binary form.
+
 ## [0.3.0] - 2026-07-09
 
 ### Changed
